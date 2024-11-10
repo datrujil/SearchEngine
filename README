@@ -1,15 +1,24 @@
-Directory Structure for testing
+Directory Structure
+
+test.py requires that the directory looks like this to run
+running directory = 'DEV' in test.py will go through all 50k+ .json files
+running directory = 'cert_ics_uci_edu' in test.py will only go through a subset of the 50k+ .json files (about 30)
 
 |
 |--DEV
 |  |
-|  |---all downloads from assignment specs
+|  |---aiclub_ics_uci_edu
+|  |---alderis_ics_uci_edu
+|  |--- ...
+|  |---xtune_ics_uci_edu
 |
 |--cert_ics_uci_edu
 |  |
-|  |---all files included in the download (using this for testing)
+|  |---0ec0574be0cbf1f1d64556d6f8c307271f6da18ae06fda8bf4d88660741168eb.json
+|  |--- ...
+|  |---ff5c03ff58f0984e8939649a621e83174aa09eeb6791ecbbf8326de60f7c829d.json
 |
-|---docmanager
-|---indexer
-|---postings
-|---test
+|---docmanager.py
+|---indexer.py
+|---postings.py
+|---test.py
