@@ -1,1 +1,15 @@
+Directory Structure for testing
 
+|
+|--DEV
+|  |
+|  |---all downloads from assignment specs
+|
+|--cert_ics_uci_edu
+|  |
+|  |---all files included in the download (using this for testing)
+|
+|---docmanager
+|---indexer
+|---postings
+|---test
