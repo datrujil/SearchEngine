@@ -3,14 +3,14 @@ import hashlib
 
 class DocManager:
     def __init__(self):
-        self._valid_manager = {}
-        self._invalid_manager = {}
-        self._doc_id = 0    # assigned document id to document passed into DocManager
-        self._doc_name = 0  # position of doc_name in tuple (doc_name, raw_url, doc_id)
-        self._url = 1       # position of raw_url in tuple (doc_name, raw_url, doc_id)
-        self._id = 2        # position of doc_id in tuple (doc_name, raw_url, doc_id)
+        self._valid_manager = {}    # {hashed_raw_url : (doc_name, raw_url, doc_id)}
+        self._invalid_manager = {}  # {hashed_raw_url : (doc_name, raw_url, doc_id)}
+        self._doc_id = 0            # assigned document id to document passed into DocManager
+        self._doc_name = 0          # position of doc_name in value tuple (doc_name, raw_url, doc_id)
+        self._url = 1               # position of raw_url in value tuple (doc_name, raw_url, doc_id)
+        self._id = 2                # position of doc_id in value tuple (doc_name, raw_url, doc_id)
 
-    # adds url to doc manager as a [hashed_url]=(doc_name, raw_url, doc_id) key value pair
+    # adds a raw url to the document manager
     # doc_name is the actual file name, e.g. 0f247aaa92746c0a1f63b0.json
     # raw_url is the url stored in the json file, e.g. json['url']
     def add_doc(self, doc_name, raw_url):

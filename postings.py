@@ -1,7 +1,7 @@
 class Postings:
     def __init__(self):
         self._doc_id = None
-        self._frequency_posting = {}    # (doc_id, frequency)
+        self._frequency_posting = {}    # {doc_id : frequency}
         # self._other_posting = {}      # add other postings as desired
         # ...                           # ...
         # self._other2_posting = {}     # ...
@@ -18,5 +18,11 @@ class Postings:
             for doc_id, frequency in self._frequency_posting.items():
                 file.write(f"doc_id = {doc_id}, frequency = {frequency}\n")
             file.write("-------------------------------------------------------\n\n")
+
+    # def print_frequency_posting2(self, *, file=None):
+    #     if file is not None:
+    #         for posting in self._frequency_posting.items():
+    #             file.write(f"{posting}\n")
+    #         file.write("-------------------------------------------------------\n\n")
 #################################################################### FREQUENCY POSTING METHODS ONLY
 
