@@ -5,40 +5,36 @@ class DocManager:
     def __init__(self):
         self._valid_manager = {}
         self._invalid_manager = {}
-        self._doc_id = 0    # assigned document id
-        self._url = 0       # position of url in tuple (url, doc_id)
-        self._id = 1        # position of doc_id in tuple (url, doc_id)
+        self._doc_id = 0    # assigned document id to document passed into DocManager
+        self._doc_name = 0  # position of doc_name in tuple (doc_name, raw_url, doc_id)
+        self._url = 1       # position of raw_url in tuple (doc_name, raw_url, doc_id)
+        self._id = 2        # position of doc_id in tuple (doc_name, raw_url, doc_id)
 
-    # adds url to doc manager as a [hashed_url]=(url,doc_id) key value pair
-    def add_url(self, raw_url):
-        # hash url
+    # adds url to doc manager as a [hashed_url]=(doc_name, raw_url, doc_id) key value pair
+    # doc_name is the actual file name, e.g. 0f247aaa92746c0a1f63b0.json
+    # raw_url is the url stored in the json file, e.g. json['url']
+    def add_doc(self, doc_name, raw_url):
+        # hash the raw url
         hashed_url = self._hash_url(raw_url)
-        # if url does not exist, add to manager
+        # if hashed url does not exist, add to manager, and store all other relevant info
         if hashed_url not in self._valid_manager:
-            self._valid_manager[hashed_url] = (raw_url, self._doc_id)
+            self._valid_manager[hashed_url] = (doc_name, raw_url, self._doc_id)
             self._increment_doc_id()
-        # repeat url, send to invalid manager
+        # url has been added before, add it to the invalid manager
         elif hashed_url not in self._invalid_manager:
-            self._invalid_manager[hashed_url] = (raw_url, self._doc_id)
+            self._invalid_manager[hashed_url] = (doc_name, raw_url, self._doc_id)
 
-    # get the corresponding document id given a url
-    def get_url_doc_id(self, raw_url):
-        # hashed url
+    # get the corresponding document id given a raw url
+    def get_doc_id(self, raw_url):
+        # hash the raw url
         hashed_url = self._hash_url(raw_url)
-        # check manager for url, return document id if valid
+        # check valid manager for hashed raw url, return the document id
         if hashed_url in self._valid_manager:
             return self._valid_manager[hashed_url][self._id]
-        # url does not exist in manager
+        # hashed raw url does not exist in the valid manager
         return -1
 
-    # retrieve url from a document id
-    def get_url(self, doc_id):
-        for url, id in self._valid_manager.values():
-            if doc_id == id:
-                return url
-        return ''
-
-    # print manager
+    # print the contents of the invalid and valid manager
     def print_manager(self, *, valid_file_name=None, invalid_file_name=None):
         if valid_file_name is not None:
             with open(valid_file_name, 'w', encoding='utf-8') as f:
@@ -61,6 +57,8 @@ class DocManager:
     def _increment_doc_id(self):
         self._doc_id += 1
 
+    # defragments a url, e.g. www.something.com/path/example#546 --> www.something.com/path/example
+    # removes the last /, e.g. www.something.com/ --> www.something.com
     def _normalize_url(self, url):
         fragment = url.find('#')
         if fragment != -1:
