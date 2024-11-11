@@ -27,3 +27,11 @@ class Indexer:
                 for token, postings in self._index.items():
                     f.write(f"token = {token}\n")
                     postings.print_frequency_posting(file=f)
+
+    # DT - Same function as Alex (the one above), just renamed to "write" cuz it confused me
+    def write_postings_to_file(self, *, file_name=None):
+        if file_name is not None:
+            with open(file_name, 'w', encoding='utf-8') as f:
+                for token, postings in self._index.items():
+                    f.write(f"token = {token}\n")
+                    postings.print_frequency_posting(file=f)
