@@ -81,4 +81,4 @@ for file in Path(os.path.join(cwd, directory)).rglob('*.json'):
 
 #my_index.print_index_frequency_posting2(file_name="index2.txt")
 # print entire document manager for reference
-# my_doc_manager.print_manager(valid_file_name="valid.txt", invalid_file_name="invalid.txt")
+my_doc_manager.print_manager(valid_file_name="valid.txt", invalid_file_name="invalid.txt")
