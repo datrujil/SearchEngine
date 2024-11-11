@@ -1,5 +1,5 @@
+import sys
 from postings import Postings
-
 
 class Indexer:
     def __init__(self):
@@ -35,3 +35,6 @@ class Indexer:
                 for token, postings in self._index.items():
                     f.write(f"token = {token}\n")
                     postings.print_frequency_posting(file=f)
+
+    def get_size(self):
+        return sys.getsizeof(self._index)
