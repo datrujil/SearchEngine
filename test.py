@@ -15,12 +15,12 @@ directory = './Information_Analyst_Data/www_cs_uci_edu'
 # directory = 'cert_ics_uci_edu'    # can be any directory you choose
 
 # DT - Partitioning variables
-FILES_READ = 0
 INDEX_FILE = 0
 CURR_FILE = "index" + str(INDEX_FILE) + ".txt"
 
-# DT - Determines how many files are read per partition before creating a new text file
-FILES_THRESHOLD = 200
+# DT - Determines how big the indexer can get before reseting
+# DT - 100MB
+SIZE_THRESHOLD = 100000
 
 # create a document manager
 my_doc_manager = DocManager()
@@ -39,9 +39,10 @@ ps = PorterStemmer()
 
 # crawl through each directory recursively and read all .json files
 for file in Path(os.path.join(cwd, directory)).rglob('*.json'):
-    # DT - Reset variables and increment indexer by 1 for memory efficiency and partitioning
-    if FILES_READ > FILES_THRESHOLD:
-        FILES_READ = 0
+    # DT - Reset variables and increment indexer by 1 for memory efficiency and partial indexing
+    # DT - Checks index size in bytes
+    if my_index.get_size() > SIZE_THRESHOLD:
+        my_index.write_postings_to_file(file_name=CURR_FILE)
         INDEX_FILE += 1
         my_index = Indexer()
         CURR_FILE = "index" + str(INDEX_FILE) + ".txt"
@@ -70,11 +71,16 @@ for file in Path(os.path.join(cwd, directory)).rglob('*.json'):
                 # add token to the index and increment its frequency
                 my_index.add_token_to_index(token)
                 my_index.increment_frequency_posting(token, doc_id)
+                if my_index.get_size() > SIZE_THRESHOLD:
+                    # Write everything to the file before resetting the index
+                    my_index.write_postings_to_file(file_name=CURR_FILE)
+                    INDEX_FILE += 1
+                    my_index = Indexer()
+                    CURR_FILE = "index" + str(INDEX_FILE) + ".txt"
 
-    # Write the current file's indexed postings to the current index file.
-    my_index.write_postings_to_file(file_name=CURR_FILE)
+# Write the last unfinished partial index
+my_index.write_postings_to_file(file_name=CURR_FILE)
 
-    FILES_READ += 1
 
 # print entire index
 # my_index.print_index_frequency_posting(file_name="index.txt")
