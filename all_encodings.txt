@@ -1,0 +1,19 @@
+# these are all the encodings found in the json files
+
+
+IBM866
+Windows-1252
+MacCyrillic
+ISO-8859-1
+EUC-KR
+SHIFT_JIS
+UTF-8-SIG
+UTF-16
+CP949
+Windows-1251
+ascii
+KOI8-R
+Windows-1254
+EUC-JP
+utf-8
+Big5
