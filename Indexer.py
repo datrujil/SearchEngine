@@ -49,16 +49,14 @@ class Indexer:
 
     # add a token as the key, and a Postings Object as its value --> {token : Postings()}
     def _add_token_to_index(self, token):
-        size_added = 0
         if token not in self._index:
             self._index[token] = Postings()
-        return size_added
 
 #################################################################### FREQUENCY POSTING METHODS ONLY
     def _increment_frequency_postings(self, token, doc_id):
         postings = self._get_token_postings(token)
         if postings:
-            return postings.increment_frequency_posting(doc_id)
+            postings.increment_frequency_posting(doc_id)
 
     def _write_index_frequency_postings_to_file(self):
         with open(f'Indexer{self._partial_index_number}.txt', 'w', encoding='utf-8') as output:
