@@ -1,8 +1,8 @@
 Directory Structure
 
 main.py requires that the directory to look similar to this
-set directory = 'DEV' for full testing
-set directory = 'cert_ics_uci_edu' for partial testing
+in main.py set directory = 'DEV' for full testing
+in main.py set directory = 'cert_ics_uci_edu' for partial testing
 
 |
 |--DEV
