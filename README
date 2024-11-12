@@ -18,7 +18,7 @@ in main.py set directory = 'cert_ics_uci_edu' for partial testing
 |  |--- ...
 |  |---ff5c03ff58f0984e8939649a621e83174aa09eeb6791ecbbf8326de60f7c829d.json
 |
-|---docmanager.py
-|---indexer.py
-|---postings.py
-|---test.py
+|---main.py
+|---Indexer.py
+|---Postings.py
+|---DocManager.py
