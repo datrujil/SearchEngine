@@ -59,7 +59,7 @@ class Indexer:
             postings.increment_frequency_posting(doc_id)
 
     def _write_index_frequency_postings_to_file(self):
-        with open(f'Indexer{self._partial_index_number}.txt', 'w', encoding='utf-8') as output:
+        with open(f'Indexer.txt', 'w', encoding='utf-8') as output:
             output.write(f"total tokens = {len(self._index)}\n")
             for token, postings in self._index.items():
                 output.write(f"token = {token}\n")
