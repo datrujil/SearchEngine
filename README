@@ -1,8 +1,8 @@
 Directory Structure
 
-test.py requires that the directory looks like this to run
-running directory = 'DEV' in test.py will go through all 50k+ .json files
-running directory = 'cert_ics_uci_edu' in test.py will only go through a subset of the 50k+ .json files (about 30)
+main.py requires that the directory to look similar to this
+set directory = 'DEV' for full testing
+set directory = 'cert_ics_uci_edu' for partial testing
 
 |
 |--DEV
