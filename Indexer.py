@@ -1,7 +1,6 @@
 import re
 import json
-import sys
-
+from typing import IO
 from Postings import Postings
 from DocManager import DocManager
 from nltk.stem import PorterStemmer
@@ -81,7 +80,7 @@ class Indexer:
             index_data["tokens"][token] = postings.to_dict()  # Return a JSON-compatible dict
 
         with open(self.current_file, 'w', encoding='utf-8') as output:
-            json.dump(index_data, output, indent=4)  # Write the entire index in JSON format with indentation
+            json.dump(index_data, output, indent=4)  # type: IO[str]
 
         print(f"Index written to {self.current_file}")
 
