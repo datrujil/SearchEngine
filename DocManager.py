@@ -1,10 +1,12 @@
+# maintains document id and url associations
 class DocManager:
     def __init__(self):
         self._assign_doc_id = 0                         # assign a document an id
-        self._doc_id_manager = {}                       # {doc_id : (file_name, raw_url)}
+        self._doc_id_manager = {}                       # {doc_id : (file_name, url)}
         self._urls = set()                              # set of all url's
         self._duplicate_urls = set()                    # set of all duplicate url's
 
+    # adds a document/url to the document manager
     def add_doc(self, json_file_name, json_handle):
         url = self._normalize_url(json_handle['url'])
         if self._add_url_to_set(url) is True:
@@ -12,9 +14,11 @@ class DocManager:
             self._increment_doc_id()
         return self.get_doc_id(json_handle['url'])
 
+    # given a document id, return its associated contents (file_name, url)
     def get_doc_info(self, doc_id):
         return self._doc_id_manager[doc_id]
 
+    # given a raw_url, return its document id if found
     def get_doc_id(self, raw_url=None):
         if raw_url is not None:
             url = self._normalize_url(raw_url)
@@ -22,6 +26,7 @@ class DocManager:
                 if url == info[1]:
                     return doc_id
 
+    # write the document manager to a text file
     def write_doc_manager_to_file(self):
         if self._doc_id_manager:
             with open('DocumentManager.txt', 'w', encoding='utf-8') as output:
@@ -31,6 +36,7 @@ class DocManager:
                 for url in self._duplicate_urls:
                     output.write(f"{url}\n")
 
+    # add a url to the set if it has not been seen before - else add it to the duplicates set
     def _add_url_to_set(self, url):
         if url not in self._urls:
             self._urls.add(url)
@@ -39,6 +45,7 @@ class DocManager:
             self._duplicate_urls.add(url)
         return False
 
+    # increments the id for the next document
     def _increment_doc_id(self):
         self._assign_doc_id += 1
 
