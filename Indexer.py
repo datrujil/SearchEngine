@@ -75,8 +75,10 @@ class Indexer:
             "tokens": {}
         }
 
-        for token, postings in self._index.items():
-            index_data["tokens"][token] = postings.to_dict()  # Return a JSON-compatible dict
+        # Sort tokens alphabetically and add them to the dictionary
+        for token in sorted(self._index.keys()):
+            postings = self._index[token]
+            index_data["tokens"][token] = postings.to_dict()
 
         with open(self.current_file, 'w', encoding='utf-8') as output:
             json.dump(index_data, output, indent=4)
