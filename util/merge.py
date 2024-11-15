@@ -61,7 +61,6 @@ merged_output = {
     "frequency index": merged_index
 }
 
-# Write the merged output to a new JSON file
 write_json(merged_output, 'merged_index.json')
 
 print("Merging completed and written to 'merged_index.json'")
