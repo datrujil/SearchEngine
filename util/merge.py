@@ -48,7 +48,8 @@ def write_json(data, file_path):
     with open(file_path, 'w') as f:
         json.dump(data, f, indent=4)
 
-file_paths = ['index1.json', 'index2.json', 'index3.json', 'index4.json','index5.json', 'index6.json','index7.json', 'index8.json','index9.json', 'index10.json']  # Replace with your actual file names
+file_paths = ['index1.json', 'index2.json', 'index3.json', 'index4.json','index5.json', 'index6.json']
+file_paths.extend(['index7.json', 'index8.json','index9.json', 'index10.json', 'index11.json', 'index12.json'])
 
 merged_index = read_json(file_paths[0])["frequency index"]
 
