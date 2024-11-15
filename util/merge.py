@@ -58,7 +58,7 @@ for path in file_paths[1:]:
     merged_index = merge_indices(merged_index, current_index)
 
 merged_output = {
-    "total_tokens": sum(len(v) for v in merged_index.values()),
+    "total_tokens": len(merged_index),
     "frequency index": merged_index
 }
 
