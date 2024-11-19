@@ -112,16 +112,9 @@ class Indexer:
 
             # Rewrite the file with merged postings
             with open(file_path, 'w', encoding='utf-8') as file:
-                for token in sorted(token_postings.keys()):
+                for token in sorted(token_postings.keys()):  # Sorted tokens
                     file.write(f'token = {token}\n')
-
-                    # Sort postings by frequency (descending) and then by doc ID (ascending for ties)
-                    sorted_postings = sorted(
-                        token_postings[token].items(),
-                        key=lambda x: (-x[1], x[0])  # First by frequency (descending), then doc ID
-                    )
-
-                    for doc_id, freq in sorted_postings:
+                    for doc_id, freq in sorted(token_postings[token].items()):  # Sorted postings
                         file.write(f'({doc_id},{freq})\n')
 
         print(f"Postings merged in folder: {output_folder}")
