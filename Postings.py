@@ -1,6 +1,3 @@
-import json
-
-
 # contains contextual information about a token
 class Postings:
     def __init__(self):
