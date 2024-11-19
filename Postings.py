@@ -18,7 +18,7 @@ class Postings:
         else:
             self._frequency_postings[doc_id] = 1
 
-    # Converts the posting data to a dictionary format for JSON export
+    # Converts the posting data to a dictionary
     def to_dict(self):
         return self._frequency_postings
             # Add other posting dictionaries here if needed in the future
