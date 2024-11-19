@@ -1,3 +1,4 @@
+import os.path
 import re
 import json
 from Postings import Postings
@@ -5,6 +6,7 @@ from DocManager import DocManager
 from nltk.stem import PorterStemmer
 from pathlib import Path
 from bs4 import BeautifulSoup
+from collections import defaultdict
 
 
 # creates partial indexes
@@ -14,8 +16,6 @@ class Indexer:
         self._doc_manager = DocManager()                    # Indexer has a document manager
         self._current_size = 0                              # Track number of JSON files visited
         self._threshold = 5000                              # JSON File limit
-        self.file_num = 1                                   # Initialize file number for indexing
-        self.current_file = f"index{self.file_num}.json"    # Partial index dump
 
     def create_index(self, directory):
         # Create a path object based on the directory given
@@ -60,6 +60,7 @@ class Indexer:
         # Final write after indexing is complete
         self._write_index_to_file()
         self._write_doc_manager_to_file()
+        self._merge_postings()
 
     def _add_token_to_index(self, token, doc_id):
         if token not in self._index:
@@ -75,21 +76,55 @@ class Indexer:
             postings.increment_frequency_posting(doc_id)
 
     # write the index into a json file
-    def _write_index_to_file(self):
-        index_data = {
-            "total_tokens": len(self._index),
-            "frequency index": {}
-        }
+    def _write_index_to_file(self, output_folder="Indexes"):
+        for token, postings in self._index.items():
+            first_letter = token[0]
+            file_name = os.path.join(output_folder, f'{first_letter}.txt')
+            with open(file_name, 'a', encoding='utf-8') as output:
+                output.write(f'token = {token}\n')
+                for docID, frequency in postings.to_dict().items():
+                    output.write(f'({docID},{frequency})\n')
 
-        # Sort tokens alphabetically and add them to the dictionary
-        for token in sorted(self._index.keys()):
-            postings = self._get_token_postings(token)
-            index_data["frequency index"][token] = postings.to_dict()
+    def _merge_postings(self, output_folder="Indexes"):
+        # Ensure the folder exists
+        if not os.path.exists(output_folder):
+            print(f"Output folder '{output_folder}' does not exist!")
+            return
 
-        with open(self.current_file, 'w', encoding='utf-8') as output:
-            json.dump(index_data, output, indent=4)
+        # Process each file in the folder
+        for file_name in os.listdir(output_folder):
+            file_path = os.path.join(output_folder, file_name)
 
-        print(f"Index written to {self.current_file}")
+            # Dictionary to store merged postings for tokens
+            token_postings = defaultdict(dict)
+
+            # Read the file and aggregate postings
+            with open(file_path, 'r', encoding='utf-8') as file:
+                current_token = None
+                for line in file:
+                    if line.startswith('token ='):
+                        current_token = line.strip().split(' = ')[1]
+                    elif current_token and line.startswith('('):  # Posting line
+                        doc_id, freq = map(int, line.strip("()\n").split(','))
+                        token_postings[current_token][doc_id] = (
+                                token_postings[current_token].get(doc_id, 0) + freq
+                        )
+
+            # Rewrite the file with merged postings
+            with open(file_path, 'w', encoding='utf-8') as file:
+                for token in sorted(token_postings.keys()):
+                    file.write(f'token = {token}\n')
+
+                    # Sort postings by frequency (descending) and then by doc ID (ascending for ties)
+                    sorted_postings = sorted(
+                        token_postings[token].items(),
+                        key=lambda x: (-x[1], x[0])  # First by frequency (descending), then doc ID
+                    )
+
+                    for doc_id, freq in sorted_postings:
+                        file.write(f'({doc_id},{freq})\n')
+
+        print(f"Postings merged in folder: {output_folder}")
 
     # writes the document manager for this specific index into a text file
     def _write_doc_manager_to_file(self):
@@ -99,8 +134,6 @@ class Indexer:
     def _reset_index(self):
         self._index = {}
         self._current_size = 0                    # Reset index size counter
-        self.file_num += 1
-        self.current_file = f"index{self.file_num}.json"
 
     # retrieve a token's postings value
     def _get_token_postings(self, token):
