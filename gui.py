@@ -1,8 +1,12 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 import time
+from searchEngine import SearchEngine
 
 def create_gui():
+
+    search_engine = SearchEngine(index_folder="Indexes")
+
     def handle_search():
         # Allow modification of the outer variables
         nonlocal output_frame, time_frame
@@ -17,19 +21,26 @@ def create_gui():
 
         # Time the search
         start_time = time.time()
-
-        # TODO: ** This is where you can obtain the query for searching **
+        query = search_query.get()
+        
         print("This was your query: ", search_query.get())
         print("You can search through the index here!")
+        results = search_engine.search_and(query)
 
-        # You're going to want to get the top results and create labels to the output_frame
-        # Here's an example, we'll need to do this for the top 5 URLs obtained from the search
-        URL = "www.example.com"
-        result_example = ttk.Label(
+        if results:
+            for doc_id in results[:5]:
+                result_label = ttk.Label(
+                    master=output_frame,
+                    text=f"Document ID: {doc_id}"
+                )
+                result_label.pack()
+        else:
+            no_result_label = ttk.Label(
                 master=output_frame,
-                text=f"{URL}\n"
-        )
-        result_example.pack()
+                text="No results found."
+            )
+            no_result_label.pack()
+
         output_frame.pack(fill=tk.Y, expand=True)
 
         execution = ttk.Label(
