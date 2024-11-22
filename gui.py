@@ -28,10 +28,10 @@ def create_gui():
         results = search_engine.search_and(query)
 
         if results:
-            for doc_id in results[:5]:
+            for url in results[:5]:
                 result_label = ttk.Label(
                     master=output_frame,
-                    text=f"Document ID: {doc_id}"
+                    text=f"URL: {url}"
                 )
                 result_label.pack()
         else:
