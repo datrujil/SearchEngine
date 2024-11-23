@@ -26,7 +26,7 @@ def create_gui():
         print("This was your query: ", search_query.get())
         print("You can search through the index here!")
         results = search_engine.search_and(query)
-
+        
         if results:
             for url in results[:5]:
                 result_label = ttk.Label(
