@@ -16,8 +16,14 @@ def create_gui():
         time_frame.destroy()
 
         # Recreate new frames
-        output_frame = tk.Frame(master=window)
-        time_frame = tk.Frame(master=window)
+        output_frame = tk.Frame(
+            master=window,
+        )
+
+        time_frame = tk.Frame(
+            master=window,
+            borderwidth=10
+        )
 
         # Time the search
         start_time = time.time()
@@ -28,7 +34,8 @@ def create_gui():
         results = search_engine.search_and(query)
         
         if results:
-            for url in results[:5]:
+            for url, score in results[:5]:
+                print(f"URL: {url}, Score: {score}") # DT: Debugging Purposes
                 result_label = ttk.Label(
                     master=output_frame,
                     text=f"URL: {url}"
@@ -53,13 +60,19 @@ def create_gui():
 
     # Initialize all frames
     window = tk.Tk()
+    window.title("Real Wide Web")
+    window.attributes("-alpha", 0.98)
+
     search_frame = tk.Frame(
         master=window,
         relief=tk.FLAT,
         borderwidth=50
     )
     output_frame = tk.Frame(master=window)
-    time_frame = tk.Frame(master=window)
+    time_frame = tk.Frame(
+        master=window,
+        borderwidth=10
+    )
 
     # Create GUI components
     greeting = ttk.Label(
@@ -69,6 +82,7 @@ def create_gui():
     greeting.pack()
 
     search_query = ttk.Entry(
+
         master=search_frame,
     )
     search_query.pack(fill=tk.X, side=tk.LEFT, expand=True)
@@ -77,6 +91,7 @@ def create_gui():
         master=search_frame,
         text="Search",
         width=10,
+        cursor="star",
         command=handle_search
     )
     search_button.pack(side=tk.RIGHT)
