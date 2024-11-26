@@ -7,6 +7,7 @@ from nltk.stem import PorterStemmer
 from pathlib import Path
 from bs4 import BeautifulSoup
 from collections import defaultdict
+import math
 
 
 # creates partial indexes
@@ -16,6 +17,7 @@ class Indexer:
         self._doc_manager = DocManager()                    # Indexer has a document manager
         self._current_size = 0                              # Track number of JSON files visited
         self._threshold = 5000                              # JSON File limit
+        self._num_docs = 0                                  # number of documents indexed
 
     def create_index(self, directory):
         # Create a path object based on the directory given
@@ -36,6 +38,10 @@ class Indexer:
                 # Load JSON file and get a document ID
                 data = json.load(curr_json_file)
                 doc_id = self._doc_manager.add_doc(file.name, data)
+
+                # keep track of largest doc_id assigned
+                if self._num_docs < doc_id:
+                    self._num_docs = doc_id
 
                 # Parse HTML content
                 # lxml parser handles broken html
@@ -83,6 +89,7 @@ class Indexer:
             with open(file_name, 'a', encoding='utf-8') as output:
                 output.write(f'token = {token}\n')
                 for docID, frequency in postings.to_dict().items():
+                    frequency = self._convert_tf(frequency)
                     output.write(f'({docID},{frequency})\n')
 
     def _merge_postings(self, output_folder="Indexes"):
@@ -105,18 +112,25 @@ class Indexer:
                     if line.startswith('token ='):
                         current_token = line.strip().split(' = ')[1]
                     elif current_token and line.startswith('('):  # Posting line
-                        doc_id, freq = map(int, line.strip("()\n").split(','))
+                        posting = line.strip("()\n").split(',')
+                        doc_id = int(posting[0])
+                        freq = float(posting[1])
                         token_postings[current_token][doc_id] = (
-                                token_postings[current_token].get(doc_id, 0) + freq
+                                round(token_postings[current_token].get(doc_id, 0) + freq, 2)
                         )
 
             # Rewrite the file with merged postings
             with open(file_path, 'w', encoding='utf-8') as file:
                 for token in sorted(token_postings.keys()):  # Sorted tokens
                     file.write(f'token = {token}\n')
+                    doc_frequency = len(token_postings.get(token))
+                    idf = round(self._calc_idf(doc_frequency), 2)
+                    file.write(f"idf = {idf}\n")
                     for doc_id, freq in sorted(token_postings[token].items()):  # Sorted postings
                         file.write(f'({doc_id},{freq})\n')
+                    file.write('\n')
 
+        print(self._num_docs)
         print(f"Postings merged in folder: {output_folder}")
 
     # writes the document manager for this specific index into a text file
@@ -135,3 +149,10 @@ class Indexer:
     # stem a token
     def _normalize_token(self, token):
         return PorterStemmer().stem(token.lower())
+
+    def _convert_tf(self, count):
+        return 1 + math.log10(count)
+
+    def _calc_idf(self, doc_count):
+        # add 1 because num docs starts at 0
+        return math.log10( (self._num_docs + 1) / doc_count )
