@@ -1,6 +1,5 @@
 import os
 from collections import defaultdict
-from functools import reduce
 from nltk.stem import PorterStemmer
 from itertools import islice
 
