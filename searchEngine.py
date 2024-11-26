@@ -4,6 +4,14 @@ from functools import reduce
 from nltk.stem import PorterStemmer
 from itertools import islice
 
+# DT: Separate calculation function for separation of concerns
+def calculate_tfidf_weight(tf, idf):
+    """
+    Calculate the tf-idf weight defined by "the product of its tf weight and its idf weight"
+    """
+    return tf * idf
+
+
 class SearchEngine:
     def __init__(self, index_folder):
         self.index_folder = index_folder
@@ -22,18 +30,21 @@ class SearchEngine:
         """
         file_path = self._get_file_for_token(token)
         if not os.path.exists(file_path):
-            return {}
+            return {}, 0 # DT: Return postings and idf 0 if the file doesn't exist
 
         postings = {}
+        idf = 0
         with open(file_path, 'r', encoding='utf-8') as file:
             current_token = None
             for line in file:
                 if line.startswith('token ='):
                     current_token = line.strip().split(' = ')[1]
+                elif current_token == token and line.startswith('idf ='):   # DT: Retrieve the idf value
+                    idf = float(line.strip().split('=')[1])
                 elif current_token == token and line.startswith('('):
-                    doc_id, freq = map(int, line.strip("()\n").split(','))
-                    postings[doc_id] = freq
-        return postings
+                    doc_id, tf = map(float, line.strip("()\n").split(','))  # DT: Retrieve each document and their respective tf
+                    postings[int(doc_id)] = tf
+        return postings, idf
 
     def get_url_from_docmanager(self, file_path, doc_id):
         """
@@ -52,6 +63,7 @@ class SearchEngine:
                 return url
             return None
 
+
     def search_and(self, query):
         """
         Search for documents that contain all tokens in the query and return the first 5 as URLs.
@@ -60,25 +72,23 @@ class SearchEngine:
         tokens = query.lower().split()
         tokens = [self.stemmer.stem(token) for token in tokens]
 
-        doc_sets = []
+        scores = defaultdict(float) # DT: Doc ID --> Relevance Score
 
         for token in tokens:
-            postings = self._load_postings_for_token(token)
-            if postings:
-                doc_sets.append(set(postings.keys()))
-            else:
-                return []
+            postings, idf = self._load_postings_for_token(token)    # DT: Retrieves idf now in addition to just postings
+            if not postings:
+                continue # Skip token with no postings
 
-        # Perform AND operation by intersecting all document sets
-        if doc_sets:
-            common_docs = set.intersection(*doc_sets)
-        else:
-            return []
+            for doc_id, tf in postings.items():
+                scores[doc_id] += calculate_tfidf_weight(tf, idf)   # DT: Calculate the relevance score of each document given tf and idf
+
+        ranked_docs = sorted(scores.items(), key = lambda x: x[1], reverse=True)    # DT: Sort the docs in decreasing order by their relevance scores
     
         doc_manager_path = "DocumentManager.txt"
-        urls = []
-        for doc_id in list(common_docs)[:5]:
+        results = []
+        # DT: Return the top 5 most relevant documents
+        for doc_id, score in ranked_docs[:5]:
             url = self.get_url_from_docmanager(doc_manager_path, doc_id)
             if url:
-                urls.append(url)
-        return urls
+                results.append((url, score))
+        return results
