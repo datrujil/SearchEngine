@@ -31,7 +31,7 @@ def create_gui():
         
         print("This was your query: ", search_query.get())
         print("You can search through the index here!")
-        results = search_engine.search_and(query)
+        results = search_engine.search_query(query)
         
         if results:
             for url, score in results[:5]:

@@ -47,6 +47,17 @@ class Indexer:
                 # lxml parser handles broken html
                 soup = BeautifulSoup(data['content'], 'lxml')
 
+                # parse important tags first
+                importance = ['title', 'h1', 'h2', 'h3', 'b', 'i', 'strong', 'em']
+                for tag in importance:
+                    important_words = soup.find_all(tag)
+                    for word in important_words:
+                        word = word.getText()
+                        token_list = re.findall(token_pattern, word)
+                        for token in token_list:
+                            token = self._normalize_token(token)
+                            self._add_token_to_index(token, doc_id, posting='importance', tag=tag)
+
                 # Process each section of the content; a section is html content between tags as to not load entire
                 # html content at once
                 for section in soup.stripped_strings:
@@ -55,25 +66,30 @@ class Indexer:
                     # Process each token in the section
                     for token in token_list:
                         token = self._normalize_token(token)
-                        self._add_token_to_index(token, doc_id)
+                        self._add_token_to_index(token, doc_id, posting='frequency')
 
             # check if threshold has been reached - if it has, dump partial index
             self._current_size += 1
             if self._current_size >= self._threshold:
-                self._write_index_to_file()
+                self._write_frequency_index_to_file()
+                self._write_importance_index_to_file()
                 self._reset_index()
 
         # Final write after indexing is complete
-        self._write_index_to_file()
+        self._write_frequency_index_to_file()
+        self._write_importance_index_to_file()
         self._write_doc_manager_to_file()
         self._merge_postings()
 
-    def _add_token_to_index(self, token, doc_id):
+    def _add_token_to_index(self, token, doc_id, *, posting, tag=None):
         if token not in self._index:
             self._index[token] = Postings()
 
         # Update the posting for the token with the document ID
-        self._increment_frequency_postings(token, doc_id)
+        if posting == 'frequency':
+            self._increment_frequency_postings(token, doc_id)
+        if posting == 'importance':
+            self._increment_importance_postings(token, doc_id, tag)
 
     # access a token's frequency posting and increment it
     def _increment_frequency_postings(self, token, doc_id):
@@ -81,57 +97,91 @@ class Indexer:
         if postings:
             postings.increment_frequency_posting(doc_id)
 
+    # access a token's frequency posting and increment it
+    def _increment_importance_postings(self, token, doc_id, tag):
+        postings = self._get_token_postings(token)
+        if postings:
+            postings.increment_importance_postings(doc_id, tag)
+
     # write the index into a json file
-    def _write_index_to_file(self, output_folder="Indexes"):
+    def _write_frequency_index_to_file(self, output_folder="Frequency_Index"):
+        cwd = os.getcwd()
+        path = Path(os.path.join(cwd, output_folder))
+        path.mkdir(parents=False, exist_ok=True)
+
         for token, postings in self._index.items():
             first_letter = token[0]
             file_name = os.path.join(output_folder, f'{first_letter}.txt')
             with open(file_name, 'a', encoding='utf-8') as output:
                 output.write(f'token = {token}\n')
-                for docID, frequency in postings.to_dict().items():
+                for docID, frequency in postings.frequency_to_dict().items():
                     frequency = self._convert_tf(frequency)
                     output.write(f'({docID},{frequency})\n')
 
-    def _merge_postings(self, output_folder="Indexes"):
+    # write the index into a json file
+    def _write_importance_index_to_file(self, output_folder='Importance_Index'):
+        cwd = os.getcwd()
+        path = Path(os.path.join(cwd, output_folder))
+
+        if not path.is_dir():
+            path.mkdir()
+
+        for token, postings in self._index.items():
+            first_letter = token[0]
+
+            for doc_id, tag_dict in postings.importance_to_dict().items():
+                for tag, frequency in tag_dict.items():
+                    path = Path(os.path.join(cwd, output_folder, tag))
+                    if not path.is_dir():
+                        path.mkdir()
+                    file_name = os.path.join(cwd, output_folder, tag, f'{first_letter}.txt')
+
+                    with open(file_name, 'a', encoding='utf-8') as output:
+                        output.write(f'token = {token}\n')
+                        output.write(f'({doc_id},{frequency})\n')
+
+    def _merge_postings(self, merged_frequency_folder="Frequency_Index", merged_importance_folder="Importance_Index"):
         # Ensure the folder exists
-        if not os.path.exists(output_folder):
-            print(f"Output folder '{output_folder}' does not exist!")
+        if not os.path.exists(merged_frequency_folder) or not os.path.exists(merged_importance_folder):
+            print(f"Output folder '{merged_frequency_folder} or {merged_importance_folder}' does not exist!")
             return
 
         # Process each file in the folder
-        for file_name in os.listdir(output_folder):
-            file_path = os.path.join(output_folder, file_name)
+        folders = [merged_frequency_folder, merged_importance_folder]
+        for folder in folders:
+            path = Path(os.path.join(os.getcwd(), folder))
+            for file_name in path.rglob('*.txt'):
+                file_path = os.path.join(folder, file_name)
 
-            # Dictionary to store merged postings for tokens
-            token_postings = defaultdict(dict)
+                # Dictionary to store merged postings for tokens
+                token_postings = defaultdict(dict)
 
-            # Read the file and aggregate postings
-            with open(file_path, 'r', encoding='utf-8') as file:
-                current_token = None
-                for line in file:
-                    if line.startswith('token ='):
-                        current_token = line.strip().split(' = ')[1]
-                    elif current_token and line.startswith('('):  # Posting line
-                        posting = line.strip("()\n").split(',')
-                        doc_id = int(posting[0])
-                        freq = float(posting[1])
-                        token_postings[current_token][doc_id] = (
-                                round(token_postings[current_token].get(doc_id, 0) + freq, 2)
-                        )
+                # Read the file and aggregate postings
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    current_token = None
+                    for line in file:
+                        if line.startswith('token ='):
+                            current_token = line.strip().split(' = ')[1]
+                        elif current_token and line.startswith('('):  # Posting line
+                            posting = line.strip("()\n").split(',')
+                            doc_id = int(posting[0])
+                            freq = float(posting[1])
+                            token_postings[current_token][doc_id] = (
+                                    round(token_postings[current_token].get(doc_id, 0) + freq, 2)
+                            )
 
-            # Rewrite the file with merged postings
-            with open(file_path, 'w', encoding='utf-8') as file:
-                for token in sorted(token_postings.keys()):  # Sorted tokens
-                    file.write(f'token = {token}\n')
-                    doc_frequency = len(token_postings.get(token))
-                    idf = round(self._calc_idf(doc_frequency), 2)
-                    file.write(f"idf = {idf}\n")
-                    for doc_id, freq in sorted(token_postings[token].items()):  # Sorted postings
-                        file.write(f'({doc_id},{freq})\n')
-                    file.write('\n')
+                # Rewrite the file with merged postings
+                with open(file_path, 'w', encoding='utf-8') as file:
+                    for token in sorted(token_postings.keys()):  # Sorted tokens
+                        file.write(f'token = {token}\n')
+                        doc_frequency = len(token_postings.get(token))
+                        idf = round(self._calc_idf(doc_frequency), 2)
+                        file.write(f"idf = {idf}\n")
+                        for doc_id, freq in sorted(token_postings[token].items()):  # Sorted postings
+                            file.write(f'({doc_id},{freq})\n')
+                        file.write('\n')
 
-        print(self._num_docs)
-        print(f"Postings merged in folder: {output_folder}")
+        print(f"Postings merged!")
 
     # writes the document manager for this specific index into a text file
     def _write_doc_manager_to_file(self):

@@ -2,47 +2,94 @@ import os
 from collections import defaultdict
 from nltk.stem import PorterStemmer
 from itertools import islice
+from pathlib import Path
+import math
 
 # DT: Separate calculation function for separation of concerns
-def calculate_tfidf_weight(tf, idf):
+def calculate_tfidf_weight(tf, idf, *, weight=1):
     """
     Calculate the tf-idf weight defined by "the product of its tf weight and its idf weight"
     """
-    return tf * idf
-
+    return tf * idf * weight
 
 class SearchEngine:
     def __init__(self, index_folder):
         self.index_folder = index_folder
         self.stemmer = PorterStemmer()
 
-    def _get_file_for_token(self, token):
-        """
-        Determine the file where the token is stored based on its first letter.
-        """
-        first_letter = token[0]
-        return os.path.join(self.index_folder, f"{first_letter}.txt")
+        self._freq_file_handles = {}
 
-    def _load_postings_for_token(self, token):
+        self._bold_handles = {}
+        self._emphasis_handles = {}
+        self._h1_handles = {}
+        self._h2_handles = {}
+        self._h3_handles = {}
+        self._italics_handles = {}
+        self._strong_handles = {}
+        self._title_handles = {}
+        self._important_file_handles = [self._bold_handles, self._emphasis_handles, self._h1_handles, self._h2_handles]
+        self._important_file_handles.extend([self._h3_handles, self._italics_handles, self._strong_handles, self._title_handles])
+        self._important_handles_index = {'b': 0, 'em': 1, 'h1': 2, 'h2': 3, 'h3': 4, 'i': 5, 'strong': 6, 'title': 7}
+        self._importance_weights = [('b',0), ('em',0), ('h1',9999), ('h2',0), ('h3',0), ('i',0), ('strong',0), ('title',0)]
+        self._open_all_indexes()
+
+    def _open_all_indexes(self):
+        cwd = os.getcwd()
+
+        important_directory = 'Importance_Index'
+        frequency_directory = 'Frequency_Index'
+
+        path = Path(os.path.join(cwd, frequency_directory))
+        for file in path.rglob('*.txt'):
+            self._freq_file_handles[file.name[0]] = open(file, 'r', encoding='utf-8')
+
+        for directory, index in self._important_handles_index.items():
+            path = Path(os.path.join(cwd, important_directory, directory))
+            for file in path.rglob('*.txt'):
+                self._important_file_handles[index][file.name[0]] = open(file, 'r', encoding='utf-8')
+
+    def _close_all_indexes(self):
+        for handle in self._freq_file_handles.values():
+            handle.close()
+        for handle in self._important_file_handles:
+            for file in handle.values():
+                file.close()
+
+    def _load_postings_for_token(self, token, *, postings_type, index=None):
+        if postings_type.lower() == 'frequency':
+            return self._helper_load_postings_for_token(token, self._freq_file_handles[token[0]])
+        if postings_type.lower() == 'importance':
+            return self._helper_load_postings_for_token(token, self._important_file_handles[index][token[0]])
+
+    def _helper_load_postings_for_token(self, token, file):
         """
         Load postings for a specific token from its corresponding file.
         """
-        file_path = self._get_file_for_token(token)
-        if not os.path.exists(file_path):
-            return {}, 0 # DT: Return postings and idf 0 if the file doesn't exist
+
+        if not file:
+            return {}, 0  # DT: Return postings and idf 0 if the file doesn't exist
 
         postings = {}
-        idf = 0
-        with open(file_path, 'r', encoding='utf-8') as file:
-            current_token = None
-            for line in file:
-                if line.startswith('token ='):
-                    current_token = line.strip().split(' = ')[1]
-                elif current_token == token and line.startswith('idf ='):   # DT: Retrieve the idf value
-                    idf = float(line.strip().split('=')[1])
-                elif current_token == token and line.startswith('('):
-                    doc_id, tf = map(float, line.strip("()\n").split(','))  # DT: Retrieve each document and their respective tf
-                    postings[int(doc_id)] = tf
+        idf = None
+        for line in file:
+            # find query token
+            if line.strip() == f'token = {token}':
+                # get line after the token line
+                line = file.readline()
+                while file and 'token' not in line and line != '\n':
+                    # get idf
+                    if idf is None:
+                        idf = float(line.strip().split(' = ')[1])  # DT: Retrieve the idf value
+                    # get postings
+                    else:
+                        data = line.strip("()\n").split(',')
+                        doc_id = int(data[0])
+                        tf = float(data[1])  # DT: Retrieve each document and their respective tf
+                        postings[doc_id] = tf
+                    # get next line
+                    line = file.readline()
+                break
+
         return postings, idf
 
     def get_url_from_docmanager(self, file_path, doc_id):
@@ -55,15 +102,13 @@ class SearchEngine:
             # Use islice to directly seek the desired line to efficinetly search DocumentManager.txt
             line = next(islice(file, doc_id, doc_id + 1), None)
             if line:
-
                 # Extract the URL from the line
                 parts = line.split("\t")
                 url = parts[1].split(" = ")[1].strip("()").split(", ")[1].replace('\'', '').replace(')', '')
                 return url
             return None
 
-
-    def search_and(self, query):
+    def search_query(self, query):
         """
         Search for documents that contain all tokens in the query and return the first 5 as URLs.
         """
@@ -71,17 +116,34 @@ class SearchEngine:
         tokens = query.lower().split()
         tokens = [self.stemmer.stem(token) for token in tokens]
 
-        scores = defaultdict(float) # DT: Doc ID --> Relevance Score
+        scores = defaultdict(float)  # DT: Doc ID --> Relevance Score
 
         for token in tokens:
-            postings, idf = self._load_postings_for_token(token)    # DT: Retrieves idf now in addition to just postings
-            if not postings:
-                continue # Skip token with no postings
+            freq_postings, freq_idf = self._load_postings_for_token(token, postings_type='frequency')    # DT: Retrieves idf now in addition to just postings
 
-            for doc_id, tf in postings.items():
-                scores[doc_id] += calculate_tfidf_weight(tf, idf)   # DT: Calculate the relevance score of each document given tf and idf
+            b_postings, b_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['b'])
+            em_postings, em_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['em'])
+            h1_postings, h1_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['h1'])
+            h2_postings, h2_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['h2'])
+            h3_postings, h3_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['h3'])
+            i_postings, i_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['i'])
+            strong_postings, strong_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['strong'])
+            title_postings, title_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['title'])
 
-        ranked_docs = sorted(scores.items(), key = lambda x: x[1], reverse=True)    # DT: Sort the docs in decreasing order by their relevance scores
+            parallel_token_importance_postings = [b_postings, em_postings, h1_postings, h2_postings, h3_postings]
+            parallel_token_importance_postings.extend([i_postings, strong_postings, title_postings])
+            parallel_token_importance_idf = [b_idf, em_idf, h1_idf, h2_idf, h3_idf, i_idf, strong_idf, title_idf]
+
+            for doc_id, tf in freq_postings.items():
+                scores[doc_id] += calculate_tfidf_weight(tf, freq_idf)
+
+            parallel_index = 0
+            for postings in parallel_token_importance_postings:
+                for doc_id, tf in postings.items():
+                    scores[doc_id] += calculate_tfidf_weight(tf, parallel_token_importance_idf[parallel_index], weight=self._importance_weights[parallel_index][1])   # DT: Calculate the relevance score of each document given tf and idf
+                parallel_index += 1
+
+        ranked_docs = sorted(scores.items(), key=lambda x: x[1], reverse=True)    # DT: Sort the docs in decreasing order by their relevance scores
     
         doc_manager_path = "DocumentManager.txt"
         results = []
