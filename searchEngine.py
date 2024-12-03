@@ -3,12 +3,6 @@ from collections import defaultdict
 from nltk.stem import PorterStemmer
 from itertools import islice
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import logging
-from threading import Lock
-
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(threadName)s - %(message)s")
 
 # DT: Separate calculation function for separation of concerns
 def calculate_tfidf_weight(tf, idf, *, weight=1):
