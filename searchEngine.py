@@ -3,7 +3,12 @@ from collections import defaultdict
 from nltk.stem import PorterStemmer
 from itertools import islice
 from pathlib import Path
-import math
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
+from threading import Lock
+
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(threadName)s - %(message)s")
 
 # DT: Separate calculation function for separation of concerns
 def calculate_tfidf_weight(tf, idf, *, weight=1):
@@ -30,7 +35,7 @@ class SearchEngine:
         self._important_file_handles = [self._bold_handles, self._emphasis_handles, self._h1_handles, self._h2_handles]
         self._important_file_handles.extend([self._h3_handles, self._italics_handles, self._strong_handles, self._title_handles])
         self._important_handles_index = {'b': 0, 'em': 1, 'h1': 2, 'h2': 3, 'h3': 4, 'i': 5, 'strong': 6, 'title': 7}
-        self._importance_weights = [('b',0), ('em',0), ('h1',9999), ('h2',0), ('h3',0), ('i',0), ('strong',0), ('title',0)]
+        self._importance_weights = [('b',0), ('em',0), ('h1',0), ('h2',0), ('h3',0), ('i',0), ('strong',0), ('title',9999)]
         self._open_all_indexes()
 
     def _open_all_indexes(self):
@@ -65,9 +70,10 @@ class SearchEngine:
         """
         Load postings for a specific token from its corresponding file.
         """
-
         if not file:
             return {}, 0  # DT: Return postings and idf 0 if the file doesn't exist
+
+        file.seek(0)    # DT: Reset the file pointer
 
         postings = {}
         idf = None
@@ -96,7 +102,6 @@ class SearchEngine:
         """
         Retrieve the URL for a given document ID by directly accessing the corresponding line in docmanager.txt.
         """
-
         with open(file_path, 'r', encoding='utf-8') as file:
 
             # Use islice to directly seek the desired line to efficinetly search DocumentManager.txt
@@ -118,30 +123,27 @@ class SearchEngine:
 
         scores = defaultdict(float)  # DT: Doc ID --> Relevance Score
 
+        # DT: Refactored token processing code
         for token in tokens:
-            freq_postings, freq_idf = self._load_postings_for_token(token, postings_type='frequency')    # DT: Retrieves idf now in addition to just postings
+            freq_postings, freq_idf = self._load_postings_for_token(token, postings_type='frequency')
 
-            b_postings, b_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['b'])
-            em_postings, em_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['em'])
-            h1_postings, h1_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['h1'])
-            h2_postings, h2_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['h2'])
-            h3_postings, h3_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['h3'])
-            i_postings, i_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['i'])
-            strong_postings, strong_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['strong'])
-            title_postings, title_idf = self._load_postings_for_token(token, postings_type='importance', index=self._important_handles_index['title'])
+            # DT: Process importance postings
+            importance_postings = []
+            importance_idfs = []
+            for tag, index in self._important_handles_index.items():
+                postings, idf = self._load_postings_for_token(token, postings_type='importance', index=index)
+                importance_postings.append(postings)
+                importance_idfs.append(idf)
 
-            parallel_token_importance_postings = [b_postings, em_postings, h1_postings, h2_postings, h3_postings]
-            parallel_token_importance_postings.extend([i_postings, strong_postings, title_postings])
-            parallel_token_importance_idf = [b_idf, em_idf, h1_idf, h2_idf, h3_idf, i_idf, strong_idf, title_idf]
-
+            # DT: Update scores from frequency postings
             for doc_id, tf in freq_postings.items():
                 scores[doc_id] += calculate_tfidf_weight(tf, freq_idf)
 
-            parallel_index = 0
-            for postings in parallel_token_importance_postings:
+            # DT: Update scores from importance postings
+            for i, postings in enumerate(importance_postings):
                 for doc_id, tf in postings.items():
-                    scores[doc_id] += calculate_tfidf_weight(tf, parallel_token_importance_idf[parallel_index], weight=self._importance_weights[parallel_index][1])   # DT: Calculate the relevance score of each document given tf and idf
-                parallel_index += 1
+                    weight = self._importance_weights[i][1]
+                    scores[doc_id] += calculate_tfidf_weight(tf, importance_idfs[i], weight=weight)
 
         ranked_docs = sorted(scores.items(), key=lambda x: x[1], reverse=True)    # DT: Sort the docs in decreasing order by their relevance scores
     
