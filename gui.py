@@ -41,7 +41,7 @@ def create_gui():
         )
 
         for widget in bottom_frame.winfo_children():
-            widget.destroy()  # DT: Remove the buttons, but keep the frame
+            widget.destroy()  # DT: Remove the existing buttons
 
     def display_results():
         """Display results for the current page."""
@@ -54,16 +54,11 @@ def create_gui():
         current_results = results[start_index:end_index]
 
         if current_results:
-            for i, (URL, score) in enumerate(current_results, start=start_index + 1):   # For pagination
+            for i, (URL, score) in enumerate(current_results, start=start_index + 1):   # DT: Enumerating for pagination!
                 print(f"URL: {URL}, Score: {score}")  # Debugging purposes
 
-                # Create a frame to hold the result (number + URL)
                 result_frame = tk.Frame(master=output_frame)
-
-                # Combine number and URL into a single label
                 combined_text = f"{i}. {URL}"
-
-                # Create a label for the combined number and URL with hover effects
                 combined_label = ttk.Label(
                     master=result_frame,
                     text=combined_text,
@@ -83,7 +78,7 @@ def create_gui():
                 text="No results found.",
                 anchor="w"
             )
-            no_result_label.pack(fill=tk.X, padx=10)  # Padding for "No results found"
+            no_result_label.pack(fill=tk.X, padx=10)
 
         output_frame.pack(fill=tk.Y, expand=True)
 
@@ -94,7 +89,7 @@ def create_gui():
         )
         execution.pack(fill=tk.X, padx=10)
 
-        # Show Previous and Next buttons
+        # DT: Show Previous and Next buttons
         if current_page > 1:
             prev_button = ttk.Button(
                 master=bottom_frame,
@@ -103,7 +98,7 @@ def create_gui():
             )
             prev_button.pack(side="left", padx=10, pady=10)
 
-        if end_index < len(results):  # Check if there are more results to show
+        if end_index < len(results):  # DT: Check if there are more results to show
             next_button = ttk.Button(
                 master=bottom_frame,
                 text="Next",
@@ -118,21 +113,20 @@ def create_gui():
         current_page = 1  # DT: Reset to the first page whenever a new search is made
         reset_gui()
 
-        # Time the search
         start_time = time.time()
         query = search_query.get()
 
         print("This was your query: ", search_query.get())
         print("You can search through the index here!")
         results = search_engine.search_query(query)
-        execution_time_ms = (time.time() - start_time) * 1000  # Calculate execution time in milliseconds
+        execution_time_ms = (time.time() - start_time) * 1000  # DT: Calculate execution time in milliseconds
 
         display_results()
 
     def next_page(event=None):
         """Move to the next page of results."""
         nonlocal current_page
-        if (current_page * results_per_page) < len(results):  # Only move to the next page if there are more results
+        if (current_page * results_per_page) < len(results):  # DT: Only move to the next page if there are more results
             current_page += 1
             display_results()
 
@@ -143,8 +137,6 @@ def create_gui():
             current_page -= 1
             display_results()
 
-
-    # Initialize all frames
     window = tk.Tk()
     window.title("Real Wide Web")
     window.attributes("-alpha", 0.98)
@@ -161,7 +153,6 @@ def create_gui():
         borderwidth=10
     )
 
-    # Create GUI components
     greeting = ttk.Label(
         master=search_frame,
         text="Welcome to the Real Wide Web!"
@@ -192,8 +183,8 @@ def create_gui():
     bottom_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=10)
 
     # DT: Add keybindings for Shift + < and Shift + >
-    window.bind("<Shift-Left>", prev_page)  # Binds Shift + Left Arrow to prev_page
-    window.bind("<Shift-Right>", next_page)  # Binds Shift + Right Arrow to next_page
+    window.bind("<Shift-Left>", prev_page)  # DT: Binds Shift + Left Arrow to prev_page
+    window.bind("<Shift-Right>", next_page)  # DT: Binds Shift + Right Arrow to next_page
 
 
     window.mainloop()
