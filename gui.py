@@ -1,67 +1,153 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 import time
+import webbrowser
+
 from searchEngine import SearchEngine
+
+def on_hover(event):
+    event.widget.configure(font=("TkDefaultFont", 13, "underline"))
+
+def on_leave(event):
+    event.widget.configure(font=("TkDefaultFont", 13))
+
+def callback(url):
+    webbrowser.open_new(url)
 
 def create_gui():
 
     search_engine = SearchEngine(index_folder="Indexes")
 
-    def handle_search():
-        # Allow modification of the outer variables
-        nonlocal output_frame, time_frame
+    results = []
+    current_page = 1
+    results_per_page = 5
+    start_time = 0
+    execution_time_ms = 0  # DT: Store execution time for the current query
 
-        # Destroy the previous frames so we can output new search results
+    def reset_gui():
+        nonlocal output_frame, time_frame, bottom_frame
+
+        # DT: Destroy the previous frames so we can output new search results
         output_frame.destroy()
         time_frame.destroy()
 
-        # Recreate new frames
         output_frame = tk.Frame(
             master=window,
         )
 
         time_frame = tk.Frame(
             master=window,
-            borderwidth=10
+            borderwidth=20
         )
 
-        # Time the search
-        start_time = time.time()
-        query = search_query.get()
-        
-        print("This was your query: ", search_query.get())
-        print("You can search through the index here!")
-        results = search_engine.search_query(query)
-        
-        if results:
-            for url, score in results[:5]:
-                print(f"URL: {url}, Score: {score}") # DT: Debugging Purposes
-                result_label = ttk.Label(
-                    master=output_frame,
-                    text=f"URL: {url}"
+        for widget in bottom_frame.winfo_children():
+            widget.destroy()  # DT: Remove the buttons, but keep the frame
+
+    def display_results():
+        """Display results for the current page."""
+        reset_gui()
+
+        nonlocal current_page, results
+
+        start_index = (current_page - 1) * results_per_page
+        end_index = start_index + results_per_page
+        current_results = results[start_index:end_index]
+
+        if current_results:
+            for i, (URL, score) in enumerate(current_results, start=start_index + 1):   # For pagination
+                print(f"URL: {URL}, Score: {score}")  # Debugging purposes
+
+                # Create a frame to hold the result (number + URL)
+                result_frame = tk.Frame(master=output_frame)
+
+                # Combine number and URL into a single label
+                combined_text = f"{i}. {URL}"
+
+                # Create a label for the combined number and URL with hover effects
+                combined_label = ttk.Label(
+                    master=result_frame,
+                    text=combined_text,
+                    anchor="w"
                 )
-                result_label.pack()
+                combined_label.pack(side="left", padx=5, pady=5)
+
+                # DT: Bind hover events to underline the URL part
+                combined_label.bind("<Button-1>", lambda e, url=URL.strip().replace("\xa0", ""): callback(url))
+                combined_label.bind("<Enter>", on_hover)
+                combined_label.bind("<Leave>", on_leave)
+
+                result_frame.pack(fill=tk.X, padx=10, pady=5)
         else:
             no_result_label = ttk.Label(
                 master=output_frame,
-                text="No results found."
+                text="No results found.",
+                anchor="w"
             )
-            no_result_label.pack()
+            no_result_label.pack(fill=tk.X, padx=10)  # Padding for "No results found"
 
         output_frame.pack(fill=tk.Y, expand=True)
 
         execution = ttk.Label(
             master=time_frame,
-            text=f"Search Time: {time.time() - start_time} seconds"
+            text=f"Search Time: {execution_time_ms:.2f} milliseconds",
+            anchor="w"
         )
-        execution.pack()
+        execution.pack(fill=tk.X, padx=10)
+
+        # Show Previous and Next buttons
+        if current_page > 1:
+            prev_button = ttk.Button(
+                master=bottom_frame,
+                text="Previous",
+                command=prev_page
+            )
+            prev_button.pack(side="left", padx=10, pady=10)
+
+        if end_index < len(results):  # Check if there are more results to show
+            next_button = ttk.Button(
+                master=bottom_frame,
+                text="Next",
+                command=next_page
+            )
+            next_button.pack(side="right", padx=10, pady=10)
+
         time_frame.pack()
+
+    def handle_search():
+        nonlocal results, current_page, start_time, execution_time_ms
+        current_page = 1  # DT: Reset to the first page whenever a new search is made
+        reset_gui()
+
+        # Time the search
+        start_time = time.time()
+        query = search_query.get()
+
+        print("This was your query: ", search_query.get())
+        print("You can search through the index here!")
+        results = search_engine.search_query(query)
+        execution_time_ms = (time.time() - start_time) * 1000  # Calculate execution time in milliseconds
+
+        display_results()
+
+    def next_page():
+        """Move to the next page of results."""
+        nonlocal current_page
+        current_page += 1
+        display_results()
+
+    def prev_page():
+        """Move to the previous page of results."""
+        nonlocal current_page
+        if current_page > 1:
+            current_page -= 1
+            display_results()
 
 
     # Initialize all frames
     window = tk.Tk()
     window.title("Real Wide Web")
     window.attributes("-alpha", 0.98)
+    window.minsize(900, 500)
 
     search_frame = tk.Frame(
         master=window,
@@ -95,9 +181,13 @@ def create_gui():
         command=handle_search
     )
     search_button.pack(side=tk.RIGHT)
-    search_button.bind("<Button-1>", )
-
     search_frame.pack(fill=tk.X)
+
+    # DT: Button Frame
+    bottom_frame = tk.Frame(
+        master=window
+    )
+    bottom_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=10)
 
     window.mainloop()
 
