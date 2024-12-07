@@ -113,7 +113,7 @@ def create_gui():
 
         time_frame.pack()
 
-    def handle_search():
+    def handle_search(event=None):
         nonlocal results, current_page, start_time, execution_time_ms
         current_page = 1  # DT: Reset to the first page whenever a new search is made
         reset_gui()
@@ -129,13 +129,14 @@ def create_gui():
 
         display_results()
 
-    def next_page():
+    def next_page(event=None):
         """Move to the next page of results."""
         nonlocal current_page
-        current_page += 1
-        display_results()
+        if (current_page * results_per_page) < len(results):  # Only move to the next page if there are more results
+            current_page += 1
+            display_results()
 
-    def prev_page():
+    def prev_page(event=None):
         """Move to the previous page of results."""
         nonlocal current_page
         if current_page > 1:
@@ -172,6 +173,7 @@ def create_gui():
         master=search_frame,
     )
     search_query.pack(fill=tk.X, side=tk.LEFT, expand=True)
+    search_query.bind("<Return>", handle_search)
 
     search_button = ttk.Button(
         master=search_frame,
@@ -188,6 +190,11 @@ def create_gui():
         master=window
     )
     bottom_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=10)
+
+    # DT: Add keybindings for Shift + < and Shift + >
+    window.bind("<Shift-Left>", prev_page)  # Binds Shift + Left Arrow to prev_page
+    window.bind("<Shift-Right>", next_page)  # Binds Shift + Right Arrow to next_page
+
 
     window.mainloop()
 
