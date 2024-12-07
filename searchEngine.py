@@ -169,8 +169,8 @@ class SearchEngine:
     
         doc_manager_path = "DocumentManager.txt"
         results = []
-        # DT: Return the top 5 most relevant documents
-        for doc_id, score in ranked_docs[:5]:
+        # DT: Return the top 100 most relevant documents
+        for doc_id, score in ranked_docs[:50]:
             url = self.get_url_from_docmanager(doc_manager_path, doc_id)
             if url:
                 results.append((url, score))
