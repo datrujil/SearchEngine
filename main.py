@@ -12,6 +12,7 @@ if __name__ == '__main__':
 
     # specify folder in which to locate all json files
     directory = 'DEV'
+    
     print(f"searching : {os.path.join(cwd, directory)}")
 
     # create the index based on the directory given

@@ -27,6 +27,7 @@ def calculate_tfidf_weight(tf, idf, *, weight=1.0, log=False):
     """
     Calculate the tf-idf weight defined by "the product of its tf weight and its idf weight"
     """
+
     if log and weight != 0:
         return math.log10(tf*weight) * idf
 
@@ -50,7 +51,7 @@ class SearchEngine:
         self._important_file_handles = [self._bold_handles, self._emphasis_handles, self._h1_handles, self._h2_handles]
         self._important_file_handles.extend([self._h3_handles, self._italics_handles, self._strong_handles, self._title_handles])
         self._important_handles_index = {'b': 0, 'em': 1, 'h1': 2, 'h2': 3, 'h3': 4, 'i': 5, 'strong': 6, 'title': 7}
-        self._importance_weights = [('b',25), ('em',0), ('h1',100), ('h2',50), ('h3',25), ('i',0), ('strong',25), ('title',100)]
+        self._importance_weights = [('b',25), ('em',0), ('h1',100), ('h2',50), ('h3',25), ('i',0), ('strong',25), ('title',100)]    
         self._open_all_indexes()
 
     def _open_all_indexes(self):
@@ -117,16 +118,16 @@ class SearchEngine:
         """
         Retrieve the URL for a given document ID by directly accessing the corresponding line in docmanager.txt.
         """
-        with open(file_path, 'r', encoding='utf-8') as file:
 
-            # Use islice to directly seek the desired line to efficinetly search DocumentManager.txt
-            line = next(islice(file, doc_id, doc_id + 1), None)
-            if line:
-                # Extract the URL from the line
-                parts = line.split("\t")
-                url = parts[1].split(" = ")[1].strip("()").split(", ")[1].replace('\'', '').replace(')', '')
-                return url
-            return None
+        # Use islice to directly seek the desired line to efficinetly search DocumentManager.txt
+        file_path.seek(0)
+        line = next(islice(file_path, doc_id, doc_id + 1), None)
+        if line:
+            # Extract the URL from the line
+            parts = line.split("\t")
+            url = parts[1].split(" = ")[1].strip("()").split(", ")[1].replace('\'', '').replace(')', '')
+            return url
+        return None
 
     def search_query(self, query):
         """
@@ -153,25 +154,24 @@ class SearchEngine:
             for tag, index in self._important_handles_index.items():
                 postings, idf = self._load_postings_for_token(token, postings_type='importance', index=index)
                 importance_postings.append(postings)
-                importance_idfs.append(idf)
-
+                importance_idfs.append(freq_idf)
+                
             # DT: Update scores from frequency postings
             for doc_id, tf in freq_postings.items():
                 scores[doc_id] += calculate_tfidf_weight(tf, freq_idf)
 
             # DT: Update scores from importance postings
             for i, postings in enumerate(importance_postings):
-                for doc_id, tf in postings.items():
-                    weight = self._importance_weights[i][1]
-                    scores[doc_id] += calculate_tfidf_weight(tf, importance_idfs[i], weight=weight, log=True)
+                    for doc_id, tf in postings.items():
+                        weight = self._importance_weights[i][1]
+                        scores[doc_id] += calculate_tfidf_weight(tf, importance_idfs[i], weight=weight, log=True)
 
         ranked_docs = sorted(scores.items(), key=lambda x: x[1], reverse=True)    # DT: Sort the docs in decreasing order by their relevance scores
-    
-        doc_manager_path = "DocumentManager.txt"
+        file_object = open("DocumentManager.txt", 'r', encoding='utf-8')
         results = []
-        # DT: Return the top 100 most relevant documents
-        for doc_id, score in ranked_docs[:50]:
-            url = self.get_url_from_docmanager(doc_manager_path, doc_id)
+        # DT: Return the top 15 most relevant documents
+        for doc_id, score in ranked_docs[:15]:
+            url = self.get_url_from_docmanager(file_object, doc_id)
             if url:
                 results.append((url, score))
         return results
