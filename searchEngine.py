@@ -186,30 +186,34 @@ class SearchEngine:
         # create a score for each relevant document {doc_id:relevance_score}
         scores = defaultdict(float)
 
+        # account for multiple occurrences of the same token
+        seen_tokens = set()
         # score each token in the query
         for token in query_tokens:
-            # load the token's frequency postings and idf
-            freq_postings, freq_idf = self._load_postings_for_token(token, postings_type='frequency')
+            # only process tokens once (avoid duplicates from the query)
+            if token not in seen_tokens:
+                # load the token's frequency postings and idf
+                freq_postings, freq_idf = self._load_postings_for_token(token, postings_type='frequency')
 
-            # store the frequency score (tf-idf) for each relevant document
-            for doc_id, tf in freq_postings.items():
-                scores[doc_id] += calculate_tfidf_weight(tf, freq_idf)
+                # store the frequency score (tf-idf) for each relevant document
+                for doc_id, tf in freq_postings.items():
+                    scores[doc_id] += calculate_tfidf_weight(tf, freq_idf)
 
-            # keep track of each tag's postings and idfs [h1,h2,h3,i,em,b,title,strong]
-            importance_postings = []
-            importance_idfs = []
-            # load the token's importance postings and idf for each tag
-            for tag, index in self._important_handles_index.items():
-                postings, idf = self._load_postings_for_token(token, postings_type='importance', tag_index=index)
-                importance_postings.append(postings)
-                importance_idfs.append(freq_idf)
+                # keep track of each tag's postings and idfs [h1,h2,h3,i,em,b,title,strong]
+                importance_postings = []
+                importance_idfs = []
+                # load the token's importance postings and idf for each tag
+                for tag, index in self._important_handles_index.items():
+                    postings, idf = self._load_postings_for_token(token, postings_type='importance', tag_index=index)
+                    importance_postings.append(postings)
+                    importance_idfs.append(freq_idf)
 
-            # store the importance score (weighted tf-idf) for each relevant document
-            for i, postings in enumerate(importance_postings):
+                # store the importance score (weighted tf-idf) for each relevant document
+                for i, postings in enumerate(importance_postings):
                     for doc_id, tf in postings.items():
                         weight = self._importance_weights[i][1]
                         scores[doc_id] += calculate_tfidf_weight(tf, importance_idfs[i], weight=weight, log=True)
-
+            seen_tokens.add(token)
         # sort the docs by their relevance scores {doc_id:relevance_score}
         ranked_docs = sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
