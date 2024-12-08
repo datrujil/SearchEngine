@@ -7,11 +7,11 @@ from searchEngine import SearchEngine
 
 
 def on_hover(event):
-    event.widget.configure(foreground="#66ff66", font=("Courier New", 12, "bold"))
+    event.widget.configure(foreground="#66ff66", font=("Courier New", 15, "bold"))
 
 
 def on_leave(event):
-    event.widget.configure(foreground="#ffffff", font=("Courier New", 12))
+    event.widget.configure(foreground="#ffffff", font=("Courier New", 15))
 
 
 def callback(url):
@@ -39,6 +39,20 @@ def create_gui():
         for widget in bottom_frame.winfo_children():
             widget.destroy() # DT: Remove the existing buttons
 
+    def display_no_results():
+        reset_gui()
+
+        no_result_label = tk.Label(
+            master=output_frame,
+            text="No results found.",
+            font=("Courier New", 15),
+            fg="#ffffff",
+            bg="#001f00",
+            anchor="center"
+        )
+        no_result_label.pack(fill=tk.X, pady=20)
+        output_frame.pack()
+
     def display_results():
         reset_gui()
 
@@ -48,6 +62,7 @@ def create_gui():
         end_index = start_index + results_per_page
         current_results, current_scores = search_engine.get_range_urls_from_docmanager(results, start_index, end_index)
 
+        print("Hello")
 
         if current_results:
             index = 0
@@ -59,7 +74,7 @@ def create_gui():
                 combined_label = tk.Label(
                     master=result_frame,
                     text=f"{i}. {url} (Score: {score:.2f})",
-                    font=("Courier New", 12),
+                    font=("Courier New", 15),
                     fg="#ffffff",
                     bg="#004d00",
                     cursor="hand2",
@@ -77,7 +92,7 @@ def create_gui():
             no_result_label = tk.Label(
                 master=output_frame,
                 text="No results found.",
-                font=("Courier New", 12),
+                font=("Courier New", 15),
                 fg="#ffffff",
                 bg="#001f00",
                 anchor="center"
@@ -100,7 +115,7 @@ def create_gui():
             prev_button = tk.Button(
                 master=bottom_frame,
                 text="Previous",
-                font=("Courier New", 12),
+                font=("Courier New", 15),
                 fg="#ffffff",
                 bg="#004d00",
                 activebackground="#006600",
@@ -112,7 +127,7 @@ def create_gui():
             next_button = tk.Button(
                 master=bottom_frame,
                 text="Next",
-                font=("Courier New", 12),
+                font=("Courier New", 15),
                 fg="#ffffff",
                 bg="#004d00",
                 activebackground="#006600",
@@ -131,8 +146,10 @@ def create_gui():
         start_time = time.time()
         results = search_engine.search_query(query)
         execution_time_ms = (time.time() - start_time) * 1000 # DT: Calculate execution time in milliseconds
-
-        display_results()
+        if len(results) == 0:
+            display_no_results()
+        else:
+            display_results()
 
     def next_page(event=None):
         nonlocal current_page
@@ -175,7 +192,7 @@ def create_gui():
     search_frame = tk.Frame(master=window, bg="#001f00")
     search_query = tk.Entry(
         master=search_frame,
-        font=("Courier New", 16),
+        font=("Courier New", 15),
         fg="#ffffff",
         bg="#004d00",
         insertbackground="#ffffff"
@@ -186,7 +203,7 @@ def create_gui():
     search_button = tk.Button(
         master=search_frame,
         text="Search",
-        font=("Courier New", 14),
+        font=("Courier New", 15),
         fg="#00ff00",
         bg="#004d00",
         activebackground="#006600",
