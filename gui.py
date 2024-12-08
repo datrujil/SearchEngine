@@ -61,8 +61,6 @@ def create_gui():
         end_index = start_index + results_per_page
         current_results, current_scores = search_engine.get_range_urls_from_docmanager(results, start_index, end_index)
 
-        print("Hello")
-
         if current_results:
             index = 0
             for i in range((start_index+1), len(current_results)+start_index+1): # DT: Enumerating for pagination!
