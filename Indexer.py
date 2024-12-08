@@ -15,12 +15,13 @@ class Indexer:
     def __init__(self):
         self._index = {}                                    # {token : Postings()}
         self._doc_manager = DocManager()                    # Indexer has a document manager
-        self._current_size = 0                              # Track number of JSON files visited
-        self._threshold = 5000                              # JSON File limit
+        self._current_size = 0                              # Track number of JSON files visited (partial index dump)
+        self._threshold = 5000                              # JSON File limit (partial index dump)
         self._num_docs = 0                                  # number of documents indexed
 
+    # create index
     def create_index(self, directory):
-        # Create a path object based on the directory given
+        # check if directory exists
         path = Path(directory)
         if not path.exists():
             print("Invalid Directory!")
@@ -29,7 +30,7 @@ class Indexer:
         # Tokenization regex pattern
         token_pattern = r'\b[a-zA-Z0-9]+\b'
 
-        # Recursively iterate through each JSON file in the directory
+        # Recursively go through each JSON file in the directory
         for file in path.rglob('*.json'):
             with open(file, 'r', encoding='utf-8') as curr_json_file:
                 # For tracking progress
@@ -39,7 +40,7 @@ class Indexer:
                 data = json.load(curr_json_file)
                 doc_id = self._doc_manager.add_doc(file.name, data)
 
-                # keep track of largest doc_id assigned
+                # keep track of largest doc_id assigned (used for idf calculation at the end)
                 if self._num_docs < doc_id:
                     self._num_docs = doc_id
 
@@ -56,16 +57,18 @@ class Indexer:
                         token_list = re.findall(token_pattern, word)
                         for token in token_list:
                             token = self._normalize_token(token)
+                            # add importance posting to token
                             self._add_token_to_index(token, doc_id, posting='importance', tag=tag)
 
-                # Process each section of the content; a section is html content between tags as to not load entire
-                # html content at once
+                # Process each section of the html
+                # a section is html content between tags as to not load entire html content at once
                 for section in soup.stripped_strings:
                     token_list = re.findall(token_pattern, section)
 
                     # Process each token in the section
                     for token in token_list:
                         token = self._normalize_token(token)
+                        # add frequency posting to token
                         self._add_token_to_index(token, doc_id, posting='frequency')
 
             # check if threshold has been reached - if it has, dump partial index
@@ -79,105 +82,124 @@ class Indexer:
         self._write_frequency_index_to_file()
         self._write_importance_index_to_file()
         self._write_doc_manager_to_file()
-        self._merge_postings()
 
+        # merge indexes
+        self._merge_indexes()
+
+    # adds a token to the index
     def _add_token_to_index(self, token, doc_id, *, posting, tag=None):
+        # if a token does not exist in the index, create an entry for it with an empty postings
         if token not in self._index:
             self._index[token] = Postings()
 
-        # Update the posting for the token with the document ID
+        # get the current token's postings
+        token_postings = self._get_token_postings(token)
+
+        # update the token's frequency postings
         if posting == 'frequency':
-            self._increment_frequency_postings(token, doc_id)
+            token_postings.increment_frequency_posting(doc_id)
+
+        # update the token's importance postings
         if posting == 'importance':
-            self._increment_importance_postings(token, doc_id, tag)
+            token_postings.increment_importance_postings(doc_id, tag)
 
-    # access a token's frequency posting and increment it
-    def _increment_frequency_postings(self, token, doc_id):
-        postings = self._get_token_postings(token)
-        if postings:
-            postings.increment_frequency_posting(doc_id)
-
-    # access a token's frequency posting and increment it
-    def _increment_importance_postings(self, token, doc_id, tag):
-        postings = self._get_token_postings(token)
-        if postings:
-            postings.increment_importance_postings(doc_id, tag)
-
-    # write the index into a json file
+    # write the frequency index to file
     def _write_frequency_index_to_file(self, output_folder="Frequency_Index"):
+        # locate the frequency index directory
         cwd = os.getcwd()
         path = Path(os.path.join(cwd, output_folder))
+
+        # make the directory if it does not exist
         path.mkdir(parents=False, exist_ok=True)
 
+        # write token and frequency postings to file from the current partial index
         for token, postings in self._index.items():
+            # get the first letter of the token and open the corresponding file
             first_letter = token[0]
             file_name = os.path.join(output_folder, f'{first_letter}.txt')
             with open(file_name, 'a', encoding='utf-8') as output:
+                # write token, doc_id and frequency to file
                 output.write(f'token = {token}\n')
-                for docID, frequency in postings.frequency_to_dict().items():
-                    frequency = self._convert_tf(frequency)
+                for docID, frequency in postings.get_frequency_posting().items():
+                    frequency = self._calc_tf(frequency)
                     output.write(f'({docID},{frequency})\n')
 
-    # write the index into a json file
+    # write the importance index to file
     def _write_importance_index_to_file(self, output_folder='Importance_Index'):
+        # locate the importance index directory
         cwd = os.getcwd()
         path = Path(os.path.join(cwd, output_folder))
 
+        # make the root directory if it does not exist
         if not path.is_dir():
             path.mkdir()
 
+        # write token and importance postings to file from the current partial index
         for token, postings in self._index.items():
-            first_letter = token[0]
-
-            for doc_id, tag_dict in postings.importance_to_dict().items():
-                for tag, frequency in tag_dict.items():
+            # get doc_id and tag_info for token [e.g. doc_id = 17, tag_info = (h1, 4)]
+            for doc_id, tag_info in postings.get_importance_posting().items():
+                # extract tag and frequency from tag_info
+                for tag, frequency in tag_info.items():
+                    # create subdirectory for the tag if it does not exist
                     path = Path(os.path.join(cwd, output_folder, tag))
                     if not path.is_dir():
                         path.mkdir()
-                    file_name = os.path.join(cwd, output_folder, tag, f'{first_letter}.txt')
 
+                    # get the first letter of the token and open the file under its corresponding tag
+                    first_letter = token[0]
+                    file_name = os.path.join(cwd, output_folder, tag, f'{first_letter}.txt')
                     with open(file_name, 'a', encoding='utf-8') as output:
+                        # write token, doc_id, and frequency to file
                         output.write(f'token = {token}\n')
                         output.write(f'({doc_id},{frequency})\n')
 
-    def _merge_postings(self, merged_frequency_folder="Frequency_Index", merged_importance_folder="Importance_Index"):
-        # Ensure the folder exists
-        if not os.path.exists(merged_frequency_folder) or not os.path.exists(merged_importance_folder):
-            print(f"Output folder '{merged_frequency_folder} or {merged_importance_folder}' does not exist!")
+    # merge indexes for frequency index and importance index
+    def _merge_indexes(self, frequency="Frequency_Index", importance="Importance_Index"):
+        # Ensure the directories exists
+        if not os.path.exists(frequency) or not os.path.exists(importance):
+            print(f"Output folder '{frequency} or {importance}' does not exist!")
             return
 
-        # Process each file in the folder
-        folders = [merged_frequency_folder, merged_importance_folder]
-        for folder in folders:
-            path = Path(os.path.join(os.getcwd(), folder))
+        # Process each file in each directory
+        folders = [frequency, importance]
+        for directory in folders:
+            # enter directory
+            path = Path(os.path.join(os.getcwd(), directory))
+
+            # recursively go through each txt file in directory
             for file_name in path.rglob('*.txt'):
-                file_path = os.path.join(folder, file_name)
+                file_path = os.path.join(directory, file_name)
 
                 # Dictionary to store merged postings for tokens
-                token_postings = defaultdict(dict)
+                merged_postings = defaultdict(dict)
 
                 # Read the file and aggregate postings
                 with open(file_path, 'r', encoding='utf-8') as file:
                     current_token = None
                     for line in file:
+                        # get token
                         if line.startswith('token ='):
                             current_token = line.strip().split(' = ')[1]
+                        # get doc_id and frequency
                         elif current_token and line.startswith('('):  # Posting line
                             posting = line.strip("()\n").split(',')
                             doc_id = int(posting[0])
                             freq = float(posting[1])
-                            token_postings[current_token][doc_id] = (
-                                    round(token_postings[current_token].get(doc_id, 0) + freq, 2)
+                            # aggregate duplicate tokens
+                            merged_postings[current_token][doc_id] = (
+                                    round(merged_postings[current_token].get(doc_id, 0) + freq, 2)
                             )
 
                 # Rewrite the file with merged postings
                 with open(file_path, 'w', encoding='utf-8') as file:
-                    for token in sorted(token_postings.keys()):  # Sorted tokens
+                    # sort tokens based on doc_id
+                    for token in sorted(merged_postings.keys()):
+                        # write token, idf, doc_id, and frequency
                         file.write(f'token = {token}\n')
-                        doc_frequency = len(token_postings.get(token))
+                        doc_frequency = len(merged_postings.get(token))
                         idf = round(self._calc_idf(doc_frequency), 2)
                         file.write(f"idf = {idf}\n")
-                        for doc_id, freq in sorted(token_postings[token].items()):  # Sorted postings
+                        for doc_id, freq in sorted(merged_postings[token].items()):  # Sorted postings
                             file.write(f'({doc_id},{freq})\n')
                         file.write('\n')
 
@@ -187,22 +209,25 @@ class Indexer:
     def _write_doc_manager_to_file(self):
         self._doc_manager.write_doc_manager_to_file()
 
-    # Resets the index and increments the file name
+    # resets the index for partial index dumping
     def _reset_index(self):
         self._index = {}
-        self._current_size = 0                    # Reset index size counter
+        self._current_size = 0
 
     # retrieve a token's postings value
     def _get_token_postings(self, token):
         return self._index[token]
 
-    # stem a token
+    # normalize tokens by using porter stemmer
     def _normalize_token(self, token):
         return PorterStemmer().stem(token.lower())
 
-    def _convert_tf(self, count):
+    # calculates the term frequency for a given token's frequency
+    def _calc_tf(self, count):
         return 1 + math.log10(count)
 
+    # calculates the tokens idf based on number of documents it is in, and the total number of documents
+    # in the corpus
     def _calc_idf(self, doc_count):
         # add 1 because num docs starts at 0
-        return math.log10( (self._num_docs + 1) / doc_count )
+        return math.log10((self._num_docs + 1) / doc_count)
