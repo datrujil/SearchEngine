@@ -1,47 +1,49 @@
-# contains contextual information about a token
+# contains a tokens contextual information (frequency postings, and importance postings)
 class Postings:
     def __init__(self):
         self._doc_id = None
-        self._frequency_postings = {}                             # {doc_id : frequency}
-        self._importance_postings = {}                            # {doc_id : (tag, frequency)}
-        # ...                                                     # add other postings as desired
-        # self._other2_posting = {}                               # ...
+        self._frequency_postings = {}       # {doc_id : frequency}
+        self._importance_postings = {}      # {doc_id : (tag, frequency)} ; tags can be h1,h2,h3,i,em,b,title,strong
 
-#################################################################### FREQUENCY POSTING METHODS ONLY
-    # increment the frequency count (of a token) for a specific document
+    # FREQUENCY INDEX METHODS
+    # -----------------------
+    #
+    # increments frequency for a given token and doc_id
     def increment_frequency_posting(self, doc_id):
         if doc_id in self._frequency_postings:
             self._frequency_postings[doc_id] += 1
         else:
             self._frequency_postings[doc_id] = 1
 
-    # Converts the posting data to a dictionary
-    def frequency_to_dict(self):
+    # return frequency posting
+    def get_frequency_posting(self):
         return self._frequency_postings
-            # Add other posting dictionaries here if needed in the future
-#################################################################### FREQUENCY POSTING METHODS ONLY
 
-#################################################################### IMPORTANCE POSTING METHODS ONLY
-    # increment the frequency count (of a token) for a specific document
-    def increment_importance_postings(self, doc_id, tag):
+    # IMPORTANCE INDEX METHODS
+    # ------------------------
+    #
+    # increments frequency for a given token, doc_id, and tag
+    def increment_importance_postings(self, doc_id, new_tag):
+        # increment a token's tag frequency if it exists within a document
         found = False
+
+        # check if token has an importance posting
         if doc_id in self._importance_postings:
-            for key in self._importance_postings[doc_id]:
-                if tag == key:
+            # check if the tag exists in the document
+            for existing_tag in self._importance_postings[doc_id]:
+                if new_tag == existing_tag:
                     found = True
-                    self._importance_postings[doc_id][key] += 1
+                    # increment tag frequency if found
+                    self._importance_postings[doc_id][existing_tag] += 1
+            # tag doesn't exist yet, create one
             if not found:
-                self._importance_postings[doc_id][tag] = 1
+                self._importance_postings[doc_id][new_tag] = 1
+
+        # create new importance posting and tag for token
         else:
             self._importance_postings[doc_id] = {}
-            self._importance_postings[doc_id][tag] = 1
+            self._importance_postings[doc_id][new_tag] = 1
 
-    # Converts the posting data to a dictionary
-    def importance_to_dict(self):
+    # return importance posting
+    def get_importance_posting(self):
         return self._importance_postings
-            # Add other posting dictionaries here if needed in the future
-
-    # check if an importance posting exists:
-    def has_importance_posting(self):
-        return bool(self._importance_postings)
-#################################################################### IMPORTANCE POSTING METHODS ONLY

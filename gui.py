@@ -19,7 +19,7 @@ def callback(url):
 
 
 def create_gui():
-    search_engine = SearchEngine(index_folder="Indexes")
+    search_engine = SearchEngine()
 
     results = []
     current_page = 1
@@ -46,14 +46,19 @@ def create_gui():
 
         start_index = (current_page - 1) * results_per_page
         end_index = start_index + results_per_page
-        current_results = results[start_index:end_index]
+        current_results, current_scores = search_engine.get_range_urls_from_docmanager(results, start_index, end_index)
+
 
         if current_results:
-            for i, (URL, score) in enumerate(current_results, start=start_index + 1): # DT: Enumerating for pagination!
+            index = 0
+            for i in range((start_index+1), len(current_results)+start_index+1): # DT: Enumerating for pagination!
+                url = current_results[index]
+                score = current_scores[index]
                 result_frame = tk.Frame(master=output_frame, bg="#004d00", pady=5, padx=5)
+                index += 1
                 combined_label = tk.Label(
                     master=result_frame,
-                    text=f"{i}. {URL} (Score: {score:.2f})",
+                    text=f"{i}. {url} (Score: {score:.2f})",
                     font=("Courier New", 12),
                     fg="#ffffff",
                     bg="#004d00",
@@ -62,7 +67,7 @@ def create_gui():
                 )
 
                 # DT: Bind hover events to underline the URL part
-                combined_label.bind("<Button-1>", lambda e, url=URL.strip(): callback(url))
+                combined_label.bind("<Button-1>", lambda e, URL=url: callback(URL))
                 combined_label.bind("<Enter>", on_hover)
                 combined_label.bind("<Leave>", on_leave)
                 combined_label.pack(fill=tk.X)
