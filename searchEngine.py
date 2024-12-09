@@ -4,6 +4,7 @@ from nltk.stem import PorterStemmer
 from itertools import islice
 from pathlib import Path
 import math
+import re
 
 # list of stop words
 STOP_WORDS = {
@@ -174,14 +175,15 @@ class SearchEngine:
     # given a query, return the top results based on tf-idf and importance
     def search_query(self, query):
         # get query
-        query_tokens = query.lower().split()
+        token_pattern = r'\b[a-zA-Z-0-9]+\b'
+        query_tokens = re.findall(token_pattern, query)
 
         # remove stopwords if query is greater than 3 tokens
         if len(query_tokens) > 3:
             query_tokens = [token for token in query_tokens if token not in STOP_WORDS]
 
         # normalize query tokens
-        query_tokens = [self.stemmer.stem(token) for token in query_tokens]
+        query_tokens = [self.stemmer.stem(token.lower()) for token in query_tokens]
 
         # create a score for each relevant document {doc_id:relevance_score}
         scores = defaultdict(float)
